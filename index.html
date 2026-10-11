@@ -1,122 +1,119 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ANALiza - Private</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANALiza</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-zinc-900 text-white p-4 md:p-8">
-<div class="max-w-6xl mx-auto grid md:grid-cols-[1fr_360px] gap-8">
+<body class="bg-zinc-900 text-white min-h-screen">
+<div class="max-w-5xl mx-auto p-4">
+  <h1 class="text-3xl font-black">ANALiza</h1>
+  <p class="text-zinc-400 text-sm mb-6">Private scoring tool • 9 metrics • Max 27p</p>
 
-  <!-- LEFT: INPUTS + RESULT -->
-  <div>
-    <h1 class="text-3xl font-black">ANALiza</h1>
-    <p class="text-zinc-400 mb-6 text-sm">Private • 9 metrics • Max 27p • Auto-saves</p>
+  <div class="grid md:grid-cols-2 gap-6">
+    <div>
+      <label class="text-xs text-zinc-400">TICKER</label>
+      <input id="ticker" class="w-full mt-1 p-3 rounded-xl bg-zinc-800 font-black text-lg outline-none" placeholder="e.g. NVDA" oninput="doRender()">
 
-    <input id="ticker" placeholder="TICKER e.g. NVDA"
-      class="w-full p-3 rounded-xl bg-zinc-800 text-lg font-black uppercase outline-none focus:ring-2 ring-white mb-6"
-      oninput="render()">
+      <div id="metrics" class="mt-6 space-y-3"></div>
 
-    <div id="metrics" class="space-y-3"></div>
+      <button onclick="saveNow()" class="w-full mt-6 bg-white text-black font-black py-3 rounded-xl">SAVE THIS COMPANY</button>
 
-    <div class="grid grid-cols-3 gap-3 mt-8">
-      <button onclick="saveAnalysis()" class="col-span-2 bg-white text-black font-black py-3 rounded-xl">SAVE THIS COMPANY</button>
-      <button onclick="clearHistory()" class="bg-zinc-800 py-3 rounded-xl text-sm">Clear All</button>
-    </div>
-
-    <!-- LIVE RESULT CARD (in page) -->
-    <div id="resultCard" class="bg-zinc-800 rounded-2xl p-6 mt-8">
-      <div class="flex justify-between items-center">
-        <div>
-          <div id="outTicker" class="text-4xl font-black">—</div>
-          <div id="outDate" class="text-zinc-400 text-xs mt-1"></div>
+      <div id="result" class="mt-6 bg-zinc-800 rounded-2xl p-5">
+        <div class="flex justify-between items-center">
+          <div>
+            <div id="rTicker" class="text-2xl font-black">—</div>
+            <div id="rDate" class="text-xs text-zinc-500"></div>
+          </div>
+          <div id="rScore" class="bg-zinc-700 px-5 py-3 rounded-xl text-2xl font-black">0 / 27</div>
         </div>
-        <div id="outScoreBox" class="w-24 h-24 rounded-2xl flex flex-col items-center justify-center bg-zinc-700">
-          <span id="outScore" class="text-3xl font-black">0</span>
-          <span class="text-xs font-bold">/27</span>
-        </div>
-      </div>
-      <div id="outRec" class="mt-6 w-full py-4 rounded-xl text-center text-xl font-black tracking-widest bg-zinc-700">SELECT METRICS</div>
-      <div id="outBreakdown" class="mt-6 space-y-2"></div>
-      <div class="mt-6">
-        <div class="flex justify-between text-xs text-zinc-400 mb-2"><span>Score</span><span id="outPercent">0%</span></div>
-        <div class="w-full bg-zinc-900 h-3 rounded-full overflow-hidden"><div id="outBar" class="h-full transition-all" style="width:0%"></div></div>
+        <div id="rRec" class="mt-4 text-center font-black py-3 rounded-xl bg-zinc-700">—</div>
+        <div id="rList" class="mt-4 space-y-2 text-sm"></div>
       </div>
     </div>
-  </div>
 
-  <!-- RIGHT: HISTORY -->
-  <div class="bg-zinc-800 rounded-2xl p-5 h-fit sticky top-6">
-    <div id="historyPanel"></div>
-    <button onclick="exportJson()" class="w-full mt-4 bg-zinc-700 py-2 rounded-lg text-sm">Export Backup (JSON)</button>
+    <div class="bg-zinc-800 rounded-2xl p-4 h-fit">
+      <h2 class="font-black mb-3">Saved Companies</h2>
+      <div id="history"></div>
+      <button onclick="localStorage.clear();renderHistory();alert('cleared')" class="w-full mt-4 bg-zinc-700 py-2 rounded-lg text-xs">Clear All</button>
+    </div>
   </div>
-
 </div>
 
 <script>
-const METRICS = [
-  { key:'pe', name:'P/E', options:[ {label:'<15', pts:3}, {label:'15-20', pts:2}, {label:'>20', pts:1} ] },
-  { key:'debt', name:'Debt', options:[ {label:'Low', pts:3}, {label:'Medium', pts:2}, {label:'Large', pts:1} ] },
-  { key:'fcf', name:'Free Cash Flow', options:[ {label:'Growing', pts:3}, {label:'Alternating', pts:2}, {label:'Inconsistent', pts:1} ] },
-  { key:'sbc', name:'Stock Based Comp / FCF', options:[ {label:'Under 10%', pts:3}, {label:'10-15%', pts:2}, {label:'>15%', pts:1} ] },
-  { key:'buybacks', name:'Buybacks', options:[ {label:'Consistent 10y', pts:3}, {label:'Low', pts:2}, {label:'No buybacks', pts:1} ] },
-  { key:'cash', name:'Cash vs Market Cap', options:[ {label:'10% of mkt cap', pts:3}, {label:'Under 10%', pts:2}, {label:'Low cash', pts:1} ] },
-  { key:'moat', name:'Moat', options:[ {label:'Moat', pts:3}, {label:'Top 10 in sector', pts:2}, {label:'No moat', pts:1} ] },
-  { key:'div', name:'Dividend Payout Ratio', options:[ {label:'Under 35%', pts:3}, {label:'35-55%', pts:2}, {label:'>55%', pts:1} ] },
-  { key:'eps', name:'Growing EPS', options:[ {label:'Consistent', pts:3}, {label:'Low growth', pts:2}, {label:'Inconsistent', pts:1} ] },
+const DATA = [
+  {k:'pe', n:'P/E', o:[['<15',3],['15-20',2],['>20',1]]},
+  {k:'debt', n:'Debt', o:[['Low',3],['Medium',2],['Large',1]]},
+  {k:'fcf', n:'Free Cash Flow', o:[['Growing',3],['Alternating',2],['Inconsistent',1]]},
+  {k:'sbc', n:'Stock Based Comp / FCF', o:[['Under 10%',3],['10-15% per FCF',2],['>15% per FCF',1]]},
+  {k:'buy', n:'Buybacks', o:[['Consistent 10y',3],['Low',2],['No buybacks',1]]},
+  {k:'cash', n:'Cash', o:[['10% of Market Cap',3],['Under 10%',2],['Low cash',1]]},
+  {k:'moat', n:'Moat', o:[['Moat',3],['Top 10 in sector',2],['No moat',1]]},
+  {k:'div', n:'Dividend Payout Ratio', o:[['Under 35%',3],['35-55%',2],['>55%',1]]},
+  {k:'eps', n:'Growing EPS', o:[['Consistent',3],['Low growth',2],['Inconsistent',1]]},
 ];
+let sel = {};
+DATA.forEach(d=> sel[d.k]=0);
 
-let selections = {};
-METRICS.forEach(m=> selections[m.key]=m.options[0]);
-
-const container = document.getElementById('metrics');
-METRICS.forEach(m=>{
-  container.innerHTML+=`
-    <div class="bg-zinc-800 p-4 rounded-xl flex justify-between items-center">
-      <span class="font-medium text-[15px]">${m.name}</span>
-      <select id="sel-${m.key}" onchange="updateSel('${m.key}',this.value)" class="bg-zinc-700 rounded-lg px-3 py-1.5 text-sm">
-        ${m.options.map((o,i)=>`<option value="${i}">${o.label} (${o.pts}p)</option>`).join('')}
-      </select>
-    </div>`;
+const cont = document.getElementById('metrics');
+DATA.forEach(d=>{
+  let opts = d.o.map((x,i)=>`<option value="${i}">${x[0]} - ${x[1]}p</option>`).join('');
+  cont.innerHTML += <div class="bg-zinc-800 p-3 rounded-xl flex justify-between items-center"><span class="text-sm font-medium">${d.n}</span><select onchange="sel['${d.k}']=parseInt(this.value);doRender()" class="bg-zinc-700 px-3 py-1 rounded-lg text-sm">${opts}</select></div>;
 });
 
-function updateSel(k,v){ selections[k]=METRICS.find(x=>x.key==k).options[v]; render(); }
-function getRec(t){
-  if(t>=23) return {text:'STRONG BUY', bg:'#22c55e', color:'black'};
-  if(t>=18) return {text:'BUY', bg:'#84cc16', color:'black'};
-  if(t>=12) return {text:'HOLD', bg:'#eab308', color:'black'};
-  return {text:'AVOID', bg:'#ef4444', color:'white'};
+function doRender(){
+  let total=0;
+  let list='';
+  DATA.forEach(d=>{
+    let idx=sel[d.k]; let pts=d.o[idx][1]; total+=pts;
+    let color = pts==3?'#22c55e':pts==2?'#eab308':'#ef4444';
+    list += <div class="flex justify-between bg-zinc-900 p-2 rounded-lg"><span>${d.n}</span><span style="background:${color}" class="px-2 rounded font-bold ${pts==1?'text-white':'text-black'}">${d.o[idx][0]} ${pts}p</span></div>;
+  });
+  let rec = total>=23?'STRONG BUY':total>=18?'BUY':total>=12?'HOLD':'AVOID';
+  let bg = total>=23?'#22c55e':total>=18?'#84cc16':total>=12?'#eab308':'#ef4444';
+  document.getElementById('rTicker').innerText = (document.getElementById('ticker').value||'—').toUpperCase();
+  document.getElementById('rDate').innerText = new Date().toLocaleString();
+  document.getElementById('rScore').innerText = total+' / 27';
+  document.getElementById('rScore').style.background = bg;
+  document.getElementById('rScore').style.color = total<12?'white':'black';
+  document.getElementById('rRec').innerText = rec;
+  document.getElementById('rRec').style.background = bg;
+  document.getElementById('rRec').style.color = total<12?'white':'black';
+  document.getElementById('rList').innerHTML = list;
 }
-function render(){
-  const ticker=document.getElementById('ticker').value||'—';
-  let total=0; Object.values(selections).forEach(s=>total+=s.pts);
-  const rec=getRec(total); const max=27; const pct=Math.round(total/max*100);
-  document.getElementById('outTicker').innerText=ticker.toUpperCase();
-  document.getElementById('outDate').innerText=new Date().toLocaleString();
-  document.getElementById('outScore').innerText=total;
-  document.getElementById('outScoreBox').style.background=rec.bg;
-  document.getElementById('outScoreBox').style.color=rec.color;
-  document.getElementById('outRec').innerText=rec.text;
-  document.getElementById('outRec').style.background=rec.bg;
-  document.getElementById('outRec').style.color=rec.color;
-  document.getElementById('outPercent').innerText=pct+'%';
-  document.getElementById('outBar').style.width=pct+'%';
-  document.getElementById('outBar').style.background=rec.bg;
-  document.getElementById('outBreakdown').innerHTML=METRICS.map(m=>{
-    const sel=selections[m.key]; const col=sel.pts==3?'#22c55e':sel.pts==2?'#eab308':'#ef4444';
-    return `<div class="flex justify-between items-center bg-zinc-900 p-3 rounded-lg text-sm">
-      <span>${m.name}</span><span class="font-bold px-2 py-1 rounded" style="background:${col};color:${sel.pts==1?'white':'black'}">${sel.label} • ${sel.pts}p</span></div>`;
-  }).join('');
-}
-function saveAnalysis(){
-  const ticker=document.getElementById('ticker').value||'UNKNOWN';
-  if(ticker.length<1) return alert('Add ticker first');
-  let total=0; Object.values(selections).forEach(s=>total+=s.pts);
-  const rec=getRec(total);
-  const entry={ ticker:ticker.toUpperCase(), date:new Date().toLocaleString(), selections:JSON.parse(JSON.stringify(selections)), total, rec:rec.text };
-  let h=JSON.parse(localStorage.getItem('analizaHistory')||'[]');
-  h.unshift(entry); localStorage.setItem('analizaHistory',JSON.stringify(h)); renderHistory();
+
+function saveNow(){
+  let t = document.getElementById('ticker').value;
+  if(!t){ alert('Write ticker first'); return; }
+  let total=0; DATA.forEach(d=> total+=d.o[sel[d.k]][1]);
+  let h = JSON.parse(localStorage.getItem('h')||'[]');
+  h.unshift({ticker:t.toUpperCase(), date:new Date().toLocaleString(), sel:JSON.parse(JSON.stringify(sel)), total:total});
+  localStorage.setItem('h', JSON.stringify(h));
+  renderHistory();
 }
 function renderHistory(){
-  let h=JSON.parse(localStorage.getItem('analizaHistory')||'[]');
+  let h = JSON.parse(localStorage.getItem('h')||'[]');
+  let html='';
+  if(h.length==0) html='<p class="text-xs text-zinc-500">Nothing saved yet</p>';
+  h.forEach((x,i)=>{
+    html+=`<div onclick="loadH(${i})" class="bg-zinc-900 p-3 rounded-xl mb-2 cursor-pointer hover:bg-black"><div class="flex justify-between"><b>${x.ticker}</b><span class="text-[10px] text-zinc-400">${x.date}</span></div><div class="text-xs mt-1">${x.total}/27</div></div>`;
+  });
+  document.getElementById('history').innerHTML=html;
+}
+function loadH(i){
+  let h = JSON.parse(localStorage.getItem('h')||'[]')[i];
+  document.getElementById('ticker').value=h.ticker;
+  sel=h.sel;
+  // rebuild selects to reflect
+  const cont = document.getElementById('metrics'); cont.innerHTML='';
+  DATA.forEach(d=>{
+    let opts = d.o.map((x,ii)=>`<option value="${ii}" ${sel[d.k]==ii?'selected':''}>${x[0]} - ${x[1]}p</option>`).join('');
+    cont.innerHTML += <div class="bg-zinc-800 p-3 rounded-xl flex justify-between items-center"><span class="text-sm font-medium">${d.n}</span><select onchange="sel['${d.k}']=parseInt(this.value);doRender()" class="bg-zinc-700 px-3 py-1 rounded-lg text-sm">${opts}</select></div>;
+  });
+  doRender();
+}
+doRender(); renderHistory();
+</script>
+</body>
+</html>
