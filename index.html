@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ANALiza</title>
+<style>body{background:#18181b;color:#fff;font-family:system-ui;padding:16px}input,select{width:100%}input{background:#27272a;border:0;padding:14px;border-radius:12px;color:#fff;font-weight:900;font-size:18px}.c{background:#27272a;padding:12px;border-radius:12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center} select{width:auto;background:#3f3f46;border:0;color:#fff;padding:8px 12px;border-radius:8px}.btn{background:#fff;color:#000;font-weight:900;padding:14px;border-radius:12px;width:100%;border:0;margin-top:16px;cursor:pointer}.box{background:#27272a;border-radius:16px;padding:18px;margin-top:18px;text-align:center}.h{background:#27272a;padding:12px;border-radius:12px;margin-top:8px;cursor:pointer}</style></head>
+<body><div style="max-width:700px;margin:auto"><h1 style="margin:0">ANALiza</h1><p style="color:#a1a1aa;font-size:12px">9 metrics • 27p max • fixed version</p>
+<input id="t" placeholder="TICKER e.g. ROL">
+<div class="c"><span>P/E</span><select id="m0"><option value="3">&lt;15 - 3p</option><option value="2">15-20 - 2p</option><option value="1">&gt;20 - 1p</option></select></div>
+<div class="c"><span>Debt</span><select id="m1"><option value="3">Low - 3p</option><option value="2">Medium - 2p</option><option value="1">Large - 1p</option></select></div>
+<div class="c"><span>Free Cash Flow</span><select id="m2"><option value="3">Growing - 3p</option><option value="2">Alternating - 2p</option><option value="1">Inconsistent - 1p</option></select></div>
+<div class="c"><span>SBC / FCF</span><select id="m3"><option value="3">Under 10% - 3p</option><option value="2">10-15% - 2p</option><option value="1">&gt;15% - 1p</option></select></div>
+<div class="c"><span>Buybacks</span><select id="m4"><option value="3">Consistent 10y - 3p</option><option value="2">Low - 2p</option><option value="1">No buybacks - 1p</option></select></div>
+<div class="c"><span>Cash</span><select id="m5"><option value="3">10% mkt cap - 3p</option><option value="2">Under 10% - 2p</option><option value="1">Low cash - 1p</option></select></div>
+<div class="c"><span>Moat</span><select id="m6"><option value="3">Moat - 3p</option><option value="2">Top 10 sector - 2p</option><option value="1">No moat - 1p</option></select></div>
+<div class="c"><span>Dividend Payout</span><select id="m7"><option value="3">Under 35% - 3p</option><option value="2">35-55% - 2p</option><option value="1">&gt;55% - 1p</option></select></div>
+<div class="c"><span>Growing EPS</span><select id="m8"><option value="3">Consistent - 3p</option><option value="2">Low growth - 2p</option><option value="1">Inconsistent - 1p</option></select></div>
+
+<div class="box"><div id="sc" style="font-size:36px;font-weight:900">27 / 27</div><div id="rc" style="margin-top:10px;padding:12px;border-radius:10px;background:#22c55e;color:#000;font-weight:900">STRONG BUY</div></div>
+<button class="btn" onclick="saveC()">SAVE THIS COMPANY</button>
+<h3 style="margin-top:24px">Saved Companies</h3><div id="hist"></div>
+</div>
+<script>
+function calc(){let tt=0;for(let i=0;i<9;i++)tt+=+document.getElementById('m'+i).value;let r=tt>=23?'STRONG BUY':tt>=18?'BUY':tt>=12?'HOLD':'AVOID';let bg=tt>=23?'#22c55e':tt>=18?'#84cc16':tt>=12?'#eab308':'#ef4444';document.getElementById('sc').textContent=tt+' / 27';let e=document.getElementById('rc');e.textContent=r;e.style.background=bg;e.style.color=tt<12?'#fff':'#000';return tt}
+for(let i=0;i<9;i++)document.getElementById('m'+i).addEventListener('change',calc);calc();
+function saveC(){let tk=document.getElementById('t').value;if(!tk){alert('ticker first');return}let v=[];for(let i=0;i<9;i++)v.push(document.getElementById('m'+i).value);let tot=calc();let h=JSON.parse(localStorage.getItem('an')||'[]');h.unshift({tk:tk.toUpperCase(),d:new Date().toLocaleDateString(),tot:tot,v:v});localStorage.setItem('an',JSON.stringify(h));render()}
+function render(){let h=JSON.parse(localStorage.getItem('an')||'[]');let s='';h.forEach((x,i)=>{s+=`<div class=h onclick="loadC(${i})"><div style=display:flex;justify-content:space-between><b>${x.tk}</b><span style=font-size:11px;color:#a1a1aa>${x.d}</span></div><div style=margin-top:4px>${x.tot}/27</div></div>`});document.getElementById('hist').innerHTML=s||'<span style=color:#71717a;font-size:12px>Nothing saved</span>'}
+function loadC(i){let h=JSON.parse(localStorage.getItem('an')||'[]')[i];document.getElementById('t').value=h.tk;for(let j=0;j<9;j++)document.getElementById('m'+j).value=h.v[j];calc()}
+render();
+</script></body></html>
